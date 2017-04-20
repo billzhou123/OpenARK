@@ -21,7 +21,7 @@ Hand::~Hand()
 
 void Hand::analyzeHand(cv::Mat xyzMap)
 {
-	
+	// Initialize data images
 	cv::Mat normalizedDepthMap;
 	cv::Mat channel[3];
 	cv::split(xyzMap, channel);
@@ -37,12 +37,10 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 	std::vector<cv::Vec4i> hierarchy;
 
 	// Find contours
-	
 	cv::threshold(input, threshold_output, 100, 255, cv::THRESH_BINARY);
 	cv::findContours(threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 
 	// Find contour polygon
-	
 	std::vector< std::vector< cv::Point> > contours_poly(contours.size());
 	for (int i = 0; i < contours.size(); i++) {
 		cv::approxPolyDP(cv::Mat(contours[i]), contours_poly[i], 3, true);
@@ -51,8 +49,17 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 	// Find largest contour
 	std::vector<cv::Point> contour = Hand::findComplexContour(contours);
 
+	cv::RotatedRect modelRect = cv::minAreaRect(contour);
+	double model_dimension_ratio = (double)modelRect.size.height / modelRect.size.width;
+	//printf("%f\n", model_dimension_ratio);
+	if (model_dimension_ratio < 1.5) {
+		isHand = false;
+		return;
+	} else {
+		isHand = true;
+	}
+
 	// Find approximated convex hull
-	
 	std::vector<cv::Point> hull;
 	std::vector<cv::Point> completeHull;
 	std::vector<int> indexHull;
@@ -63,7 +70,6 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 	}
 
 	// Find convexityDefects
-	
 	std::vector<cv::Vec4i> defects;
 	if (indexHull.size() > 3) {
 		cv::convexityDefects(contour, indexHull, defects);
@@ -75,7 +81,6 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 	cv::minMaxLoc(channel[2], &minVal, &maxVal, &minLoc, &maxLoc);
 
 	// Find center of contour
-	
 	cv::Point center = Hand::findCenter(contour);
 	centroid_xyz = xyzMap.at<cv::Vec3f>(center.y / 4, center.x / 4); 
 	centroid_ij = cv::Point2i(center.x, center.y); // SCALING
@@ -92,7 +97,6 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 	}
 	
 	// Draw hull
-	
 	cv::Point index;
 	cv::Point index_right;
 	cv::Point index_left;
@@ -102,8 +106,6 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 		for (int i = 0; i < hull.size(); i++) {
 			cv::Point p1 = hull[i];
 			cv::Point p2 = hull[(i + 1) % hull.size()];
-			//cv::line(img, p1, p2, cv::Scalar(255, 0, 0), 1);
-
 			if (p1.y < centroid_ij.y && Util::euclideanDistance2D(p1, centroid_ij) > farthest) {
 				farthest = Util::euclideanDistance2D(p1, centroid_ij);
 				index = p1;
@@ -113,10 +115,9 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 		}
 	}
 	
-	// Draw defects (filter)
-	
 	std::vector<cv::Point> endpoints;
 	std::vector<cv::Point> fingerDefects;
+	std::vector<cv::Point> pointsForPalm;
 	cv::Point lastStart;
 	int found = -1;
 	for (int i = 0; i < defects.size(); i++) {
@@ -124,6 +125,9 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 		cv::Point start = contour[defect[0]];
 		cv::Point end = contour[defect[1]];
 		cv::Point farPt = contour[defect[2]];
+		if (start.y < 0.9 * img.cols && start.x < 0.9 * img.rows) {
+			pointsForPalm.push_back(start);
+		}
 		// Depth from edge of contour
 		// std::cout << "Depth: " << depth << "\tThreshold: " << cv::norm(maxLoc - center) << "\t";
 		// Defect conditions: depth is sufficient, inside contour, y value is above center
@@ -144,7 +148,6 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 	}
 	
 	// Cluster fingertip locations
-	
 	endpoints = Hand::clusterConvexHull(endpoints, Hand::CLUSTER_THRESHOLD);
 	for (int i = 0; i < endpoints.size(); i++) {
 		cv::Point endpoint = endpoints[i];
@@ -160,7 +163,7 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 		cv::Vec3f endPoint_xyz = Util::averageAroundPoint(xyzMap, cv::Point2i(endpoint.x / 4, endpoint.y / 4), 10);
 		cv::Vec3f closestDefect_xyz = Util::averageAroundPoint(xyzMap, cv::Point2i(closestDefect.x / 4,  closestDefect.y / 4), 10);
 		double finger_length = Util::euclidianDistance3D(endPoint_xyz, closestDefect_xyz);
-		if (finger_length < 0.08 && finger_length > 0.025 && endpoint.y < closestDefect.y) {
+		if (finger_length < 0.08 && finger_length > 0.005) {
 			fingers_xyz.push_back(endPoint_xyz);
 			fingers_ij.push_back(cv::Point2i(endpoint.x, endpoint.y)); // SCALING
 
@@ -168,11 +171,12 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 			defects_ij.push_back(cv::Point2i(closestDefect.x, closestDefect.y)); // SCALING
 		}
 	}
+	num_fingers - fingers_xyz.size();
 	if ((float)cv::countNonZero(channel[2]) / (xyzMap.rows*xyzMap.cols) > 0.3) {
 		return;
 	}
 
-	// If there is one or less visible fingers
+	// Compute finger positions in (x,y,z) and (i, j)
 	if (fingers_xyz.size() <= 1)
 	{
 		fingers_xyz.clear();
@@ -181,7 +185,11 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 		cv::Vec3f indexFinger = Util::averageAroundPoint(xyzMap, cv::Point2i(index.x / 4, index.y / 4), 10);
 		fingers_xyz.push_back(indexFinger);
 		fingers_ij.push_back(cv::Point2i(index.x, index.y)); // SCALING
+		pointsForPalm.push_back(cv::Point2i(index.x, index.y));
 		
+		
+
+
 		double angle = Util::TriangleAngleCalculation(index_left.x, index_left.y, index.x, index.y, index_right.x, index_right.y);
 		if (defects_ij.size() != 0) {
 			for (int i = 0; i < fingers_xyz.size(); i++) {
@@ -191,23 +199,60 @@ void Hand::analyzeHand(cv::Mat xyzMap)
 				cv::line(img, defects_ij[i], centroid_ij, cv::Scalar(255, 0, 255), 2);
 			}
 		}
+		
 		else if (angle > ANGLE_THRESHHOLD) {
 			cv::circle(img, fingers_ij[0], 5, cv::Scalar(0, 0, 255), 3);
 			cv::line(img, fingers_ij[0], centroid_ij, cv::Scalar(255, 0, 255), 2);
 		}
 		
+		
 	}
 	else {
+		for (int i = 0; i < fingers_xyz.size() - 1; i++) {
+			double finger_angle = Util::TriangleAngleCalculation(
+				 defects_ij[i].x, defects_ij[i].y, fingers_ij[i].x, fingers_ij[i].y, fingers_ij[i + 1].x, fingers_ij[i + 1].y);
+			if (finger_angle > 90) {
+				double d_i = Util::euclidianDistance3D(fingers_xyz[i], centroid_xyz);
+				double d_i1 = Util::euclidianDistance3D(fingers_xyz[i + 1], centroid_xyz);
+				if (d_i < d_i1) {
+					fingers_ij[i] = cv::Point(-1, -1);
+				}
+				else {
+					fingers_ij[i + 1] = cv::Point(-1, -1);
+				}
+				//defects_ij[i] = cv::Point(-1, -1);
+			}
+		}
+
 		for (int i = 0; i < fingers_xyz.size(); i++) {
+			if (fingers_ij[i].x == -1) {
+				continue;
+			}
 			cv::circle(img, fingers_ij[i], 5, cv::Scalar(0, 0, 255), 3);
 			cv::line(img, defects_ij[i], fingers_ij[i], cv::Scalar(255, 0, 255), 2);
 			cv::circle(img, defects_ij[i], 3, cv::Scalar(0, 255, 255), 2);
 			cv::line(img, defects_ij[i], centroid_ij, cv::Scalar(255, 0, 255), 2);
 		}
 	}
-	cv::imshow("Contours", img);
-	
-	
+
+	// Compute palm location in (x,y,z) and (i,j)
+	if (((int)pointsForPalm.size()) > 5) {
+		pointsForPalm.push_back(centroid_ij);
+		cv::RotatedRect palm = cv::fitEllipse(pointsForPalm);
+		cv::Size palm_size = palm.size;
+		double roundness = (double) std::min(palm_size.height, palm_size.width) / std::max(palm_size.width, palm_size.height);
+		if (roundness > 0.4) {
+			palm_center_xyz = Util::averageAroundPoint(xyzMap, cv::Point2i(palm.center.x / 4, palm.center.y / 4), 5);
+			palm_center_ij = palm.center;
+			palm_visible = true;
+		} else {
+			palm_visible = false;
+		}
+	} else {
+		palm_visible = false;
+	}
+
+	cv::imshow("Hand Model", img);
 }
 
 std::vector<cv::Point> Hand::findComplexContour(std::vector< std::vector<cv::Point> > contours) {

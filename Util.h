@@ -1,4 +1,8 @@
 #pragma once
+// C++ Libraries
+#include <stdio.h>
+#include <iostream>
+
 // OpenCV Libraries
 #include <opencv/cxcore.h>
 #include "opencv2/imgproc/imgproc.hpp"

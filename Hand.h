@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 // OpenCV Libraries
 #include <opencv2/core/core.hpp>
@@ -11,6 +12,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
+
+// OpenARK Libraries
+#include "DepthCamera.h"
 
 class Hand {
 public:
@@ -69,6 +73,31 @@ public:
 	* (i,j) position of detected defects
 	*/
 	std::vector<cv::Point2i> defects_ij;
+
+	/*
+	* (x,y,z) position of detected palm
+	*/
+	cv::Vec3f palm_center_xyz;
+
+	/*
+	* (i,j) position of detected palm
+	*/
+	cv::Point2i palm_center_ij;
+
+	/*
+	* Number of fingers on the hand
+	*/
+	int num_fingers;
+
+	/*
+	* Whether palm is visible
+	*/
+	bool palm_visible;
+
+	/*
+	* Whether the object is a hand
+	*/
+	bool isHand;
 
 	// Public functions
 

@@ -23,6 +23,16 @@ class DepthCamera
 {
 public:
 	/**
+	* The image width resolution (pixels) that the depth sensor produces.
+	*/
+	int X_DIMENSION;
+
+	/**
+	* The image height resolution (pixels) that the depth sensor produces.
+	*/
+	int Y_DIMENSION;
+
+	/**
 	 * Update the depth camera by one frame.
 	 * This function should be overriden with a concrete implementation depending on the specific depth camera
 	 */
@@ -160,14 +170,4 @@ protected:
 	 * This value varies from sensor to sensor so it should be defined when constructing child class
 	 */
 	int INVALID_FLAG_VALUE;
-
-	/**
-	 * The image width resolution (pixels) that the depth sensor produces.
-	 */
-	int X_DIMENSION = 176;
-
-	/**
-	 * The image height resolution (pixels) that the depth sensor produces.
-	 */
-	int Y_DIMENSION = 120;
 };

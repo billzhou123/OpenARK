@@ -15,15 +15,14 @@ Plane::Plane(cv::Mat &src)
 	upsampled_colored_cloud = new pcl::PointCloud<pcl::PointXYZRGB>::Ptr(new pcl::PointCloud<pcl::PointXYZRGB>);
 
 	initializeCloud(src);
+
 	
-	if (cloud->get()->width < CLOUD_SIZE_THRESHOLD) {
-		return;
-	}
-	
+
 	compute();
 }
 
 Plane::~Plane() {
+
 }
 
 int Plane::compute()

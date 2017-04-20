@@ -16,13 +16,16 @@ Object3D::Object3D(cv::Mat cluster) {
 	hasShape = false;
 
 	// Step 1: determine whether cluster is hand
-	
-	if (checkForHand(cluster, 0.005, 0.25)) {
+	cv::Mat channels[3];
+	cv::split(cluster, channels);
+	double coverage = (double) cv::countNonZero(channels[2]) / (cluster.rows * cluster.cols);
+	if (coverage < 0.2) {
 		hand = Hand(cluster, 50);
-		hasHand = true;
-		return;
+		if (hand.isHand && checkForHand(cluster, -0.99, 0.2)) {
+			hasHand = true;
+			return;
+		}
 	}
-	
 	
 	// Step 2: determine whether there is a plane
 	
@@ -43,21 +46,24 @@ Object3D::Object3D(cv::Mat cluster) {
 
 		cv::Mat hand_cluster = cv::Mat::zeros(cluster.rows, cluster.cols, cluster.type());
 		Util::floodFill(center.x, center.y, cluster, hand_cluster, 0.02);
-
+		
+		
 		if (checkForHand(hand_cluster, -0.99, 0.2)) {
 			hand = Hand(hand_cluster, 30);
-			double finger_length = Util::euclidianDistance3D(hand.fingers_xyz[0], hand.centroid_xyz);
-			if (finger_length > 0.03 && finger_length < 0.2) {
-				hasHand = true;
-				return;
+			if (hand.isHand) {
+				double finger_length = Util::euclidianDistance3D(hand.fingers_xyz[0], hand.centroid_xyz);
+				if (finger_length > 0.03 && finger_length < 0.2) {
+					hasHand = true;
+					return;
+				}
 			}
 		}
 	}
 	
-	
 	// Step 2.1.1 If there is plane, no hand, then the rest of points are shape
 	shape = cluster;
 	hasShape = true;
+	
 }
 
 Hand Object3D::getHand() {
@@ -116,10 +122,7 @@ bool Object3D::checkForHand(cv::Mat cluster, double min_coverage, double max_cov
 {
 	checkEdgeConnected(cluster);
 	if ((rightEdgeConnected && !leftEdgeConnected) || (leftEdgeConnected && rightEdgeConnected)) {
-		double coverage = centroidCircleSweep(cluster, pointer_finger_distance);
-		if (coverage < max_coverage && coverage > min_coverage) {
-			return true;
-		}
+		return true;
 	}
 
 	return false;
@@ -170,5 +173,4 @@ void Object3D::checkEdgeConnected(cv::Mat cluster) {
 
 Object3D::~Object3D()
 {
-
 }

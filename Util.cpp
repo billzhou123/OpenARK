@@ -217,9 +217,9 @@ double Util::TriangleAngleCalculation(double x1, double y1, double x2, double y2
 		}
 	}
 
-	//cout << endl << "Angle Between First Point and Second Point = " << angle3 << endl;
-	//cout << "Angle Between First Point and Third Point = " << angle2 << endl;
-	//cout << "Angle Between Second Point and Third Point = " << angle1 << endl;
+	//std::cout << "Angle Between First Point and Second Point = " << angle3 << std::endl;
+	//std::cout << "Angle Between First Point and Third Point = " << angle2 << std::endl;
+	//std::cout << "Angle Between Second Point and Third Point = " << angle1 << std::endl;
 	return angle2;
 }
 
