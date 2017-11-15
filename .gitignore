@@ -285,3 +285,28 @@ OpenNI2.dll
 # Cake - Uncomment if you are using it
 # tools/**
 # !tools/packages.config
+
+
+.vs/OpenARK/
+ALL_BUILD.vcxproj
+ALL_BUILD.vcxproj.filters
+CMakeCache.txt
+CMakeFiles/
+Debug/
+OpenARK.dir/
+OpenARK.sln
+OpenARK.vcxproj
+OpenARK.vcxproj.filters
+OpenARK_test.dir/
+OpenARK_test.exe
+OpenARK_test.vcxproj
+OpenARK_test.vcxproj.filters
+OpenARK_test/
+Release/
+ZERO_CHECK.vcxproj
+ZERO_CHECK.vcxproj.filters
+cmake_install.cmake
+results.txt
+x64/Debug/
+x64/Release/ALL_BUILD/
+x64/Release/ZERO_CHECK/
